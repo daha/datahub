@@ -65,6 +65,11 @@ class OracleConfig(BasicSQLAlchemyConfig):
     database: Optional[str] = Field(
         default=None, description="If using, omit `service_name`."
     )
+    use_dba_tables: bool = Field(
+        default=True,
+        description="Use `dba_tables` and `dba_users` instead of `all_tables` "
+        "and `all_users` which is default with sqlalchemy.",
+    )
 
     @pydantic.validator("service_name")
     def check_service_name(cls, v, values):
@@ -172,7 +177,13 @@ class OracleSource(SQLAlchemySource):
                 inspector.engine, "before_cursor_execute", before_cursor_execute
             )
             # To silent the mypy lint error
-            yield cast(Inspector, OracleInspectorObjectWrapper(inspector))
+            config = cast(OracleConfig, self.config)
+
+            if config.use_dba_tables:
+                # To silent the mypy lint error
+                yield cast(Inspector, OracleInspectorObjectWrapper(inspector))
+            else:
+                yield inspector
 
     def get_workunits(self):
         with patch.dict(
